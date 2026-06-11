@@ -65,19 +65,19 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
 
     viewpoint_stack = scene.getTrainCameras().copy()  # 初始化一个训练相机列表的副本，用于在训练过程中随机选择相机进行渲染和训练
     viewpoint_indices = list(range(len(viewpoint_stack)))  # 初始化一个训练相机索引列表，包含从 0 到训练相机列表长度减 1 的整数，用于在训练过程中随机选择相机索引进行渲染和训练
-    ema_loss_for_log = 0.0
+    ema_loss_for_log = 0.0  # 
     ema_Ll1depth_for_log = 0.0
 
     progress_bar = tqdm(range(first_iter, opt.iterations), desc="Training progress")
     first_iter += 1
-    for iteration in range(first_iter, opt.iterations + 1):
+    for iteration in range(first_iter, opt.iterations + 1):# 
         if network_gui.conn == None:
             network_gui.try_connect()
         while network_gui.conn != None:
             try:
                 net_image_bytes = None
                 custom_cam, do_training, pipe.convert_SHs_python, pipe.compute_cov3D_python, keep_alive, scaling_modifer = network_gui.receive()
-                if custom_cam != None:
+                if custom_cam != None: #
                     net_image = render(custom_cam, gaussians, pipe, background, scaling_modifier=scaling_modifer, use_trained_exp=dataset.train_test_exp, separate_sh=SPARSE_ADAM_AVAILABLE)["render"]
                     net_image_bytes = memoryview((torch.clamp(net_image, min=0, max=1.0) * 255).byte().permute(1, 2, 0).contiguous().cpu().numpy())
                 network_gui.send(net_image_bytes, dataset.source_path)

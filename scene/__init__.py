@@ -38,7 +38,7 @@ class Scene:
             print("Loading trained model at iteration {}".format(self.loaded_iter))
 
         self.train_cameras = {}  # 初始化训练和测试相机字典
-        self.test_cameras = {}
+        self.test_cameras = {} 
 
         if os.path.exists(os.path.join(args.source_path, "sparse")):  # 这里是判断输入路径下是否存在 "sparse" 文件夹，如果存在，说明这是一个 Colmap 场景
             scene_info = sceneLoadTypeCallbacks["Colmap"](args.source_path, args.images, args.depths, args.eval, args.train_test_exp)
@@ -48,7 +48,7 @@ class Scene:
             print("Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.depths, args.eval)
                    
-        else:
+        else: #  
             assert False, "Could not recognize scene type!"
 
         if not self.loaded_iter:  # 如果没有加载迭代数据，就将场景信息中的点云数据保存到模型路径下的 "input.ply" 文件中，并将相机信息保存到 "cameras.json" 文件中
@@ -89,12 +89,12 @@ class Scene:
         point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
         self.gaussians.save_ply(os.path.join(point_cloud_path, "point_cloud.ply"))
         exposure_dict = {
-            image_name: self.gaussians.get_exposure_from_name(image_name).detach().cpu().numpy().tolist()
+            image_name: self.gaussians.get_exposure_from_name(image_name).detach().cpu().numpy().tolist()# 
             for image_name in self.gaussians.exposure_mapping
-        }
+        } # 将曝光信息保存到字典中，键是图像名称，值是从高斯模型中获取的曝光信息，并将其转换为列表格式
 
         with open(os.path.join(self.model_path, "exposure.json"), "w") as f:  # 将当前的曝光信息保存到 "exposure.json" 文件中，保存的内容是一个字典，其中键是图像名称，值是从高斯模型中获取的曝光信息，并将其转换为列表格式以便 JSON 序列化。
-            json.dump(exposure_dict, f, indent=2)
+            json.dump(exposure_dict, f, indent=2) # 将曝光信息保存到 "exposure.json" 文件中，以便后续使用
 
     def getTrainCameras(self, scale=1.0):   # 用于获取训练相机列表的方法。该方法接受一个可选的 scale 参数，表示分辨率缩放比例，默认为 1.0。根据传入的 scale 参数，从 train_cameras 字典中获取对应分辨率缩放比例的训练相机列表，并返回该列表。
         return self.train_cameras[scale]

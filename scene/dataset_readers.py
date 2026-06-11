@@ -46,6 +46,22 @@ class SceneInfo(NamedTuple): #
     is_nerf_synthetic: bool
 
 def getNerfppNorm(cam_info):
+    """
+    计算 NeRF++ 归一化参数，用于场景的标准化处理。
+
+    该函数通过遍历相机信息列表，提取所有相机的中心点坐标，
+    计算这些中心点的几何中心以及最大覆盖半径（并增加 10% 的余量）。
+    返回的平移量和半径可用于后续将场景坐标归一化到单位球或特定范围内，
+    以便在创建高斯模型或进行渲染时保持数值稳定性。
+
+    Parameters:
+        cam_info (list): 相机信息对象列表。每个对象应包含属性 'R' (旋转矩阵) 和 'T' (平移向量)。
+
+    Returns:
+        dict: 包含归一化参数的字典：
+            - "translate" (np.ndarray): 平移向量，值为负的几何中心坐标，用于将场景中心移至原点。
+            - "radius" (float): 归一化半径，为最大相机中心距离的 1.1 倍。
+    """
     def get_center_and_diag(cam_centers):
         cam_centers = np.hstack(cam_centers)
         avg_cam_center = np.mean(cam_centers, axis=1, keepdims=True)
@@ -54,6 +70,7 @@ def getNerfppNorm(cam_info):
         diagonal = np.max(dist)
         return center.flatten(), diagonal
 
+    # 提取所有相机的世界坐标系中心点
     cam_centers = []
 
     for cam in cam_info:
@@ -61,7 +78,10 @@ def getNerfppNorm(cam_info):
         C2W = np.linalg.inv(W2C)
         cam_centers.append(C2W[:3, 3:4])
 
+    # 计算相机中心点的几何中心及最大对角距离
     center, diagonal = get_center_and_diag(cam_centers)
+    
+    # 增加 10% 的半径余量以确保包含所有相机视角
     radius = diagonal * 1.1
 
     translate = -center
@@ -127,6 +147,20 @@ def fetchPly(path):
     return BasicPointCloud(points=positions, colors=colors, normals=normals)
 
 def storePly(path, xyz, rgb):
+    """
+    将点云数据保存为 PLY 格式文件。
+
+    该函数接收点的坐标和颜色信息，自动生成零法向量，
+    并将其组合写入指定的 PLY 文件中。
+
+    Parameters:
+        path (str): 输出 PLY 文件的路径。
+        xyz (numpy.ndarray): 点云的坐标数组，形状为 (N, 3)，数据类型通常为 float32 或 float64。
+        rgb (numpy.ndarray): 点云的颜色数组，形状为 (N, 3)，数据类型通常为 uint8。
+
+    Returns:
+        None
+    """
     # Define the dtype for the structured array
     dtype = [('x', 'f4'), ('y', 'f4'), ('z', 'f4'),
             ('nx', 'f4'), ('ny', 'f4'), ('nz', 'f4'),
@@ -343,4 +377,4 @@ sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo,
     "Realdata": readRealSceneInfo,
-}  
+}  # 这里创建了一个字典，将数据集类型（Colmap、Blender、Realdata）映射到对应的数据读取函数。
