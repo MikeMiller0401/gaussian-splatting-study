@@ -98,9 +98,9 @@ def readColmapCameras(cam_extrinsics, cam_intrinsics, depths_params, images_fold
         else:
             assert False, "Colmap camera model not handled: only undistorted datasets (PINHOLE or SIMPLE_PINHOLE cameras) supported!"
 
-        n_remove = len(extr.name.split('.')[-1]) + 1
+        n_remove = len(extr.name.split('.')[-1]) + 1  # 这里是计算相机名称中需要去除的后缀长度，以便在后续的深度参数文件路径构建和图像名称提取过程中能够正确地处理相机名称。这个计算可能是为了适应不同格式的相机名称，例如 "image.png" 中的 ".png" 后缀，确保在构建深度参数文件路径和提取图像名称时能够正确地去除这些后缀部分。
         depth_params = None
-        if depths_params is not None:
+        if depths_params is not None:  # 
             try:
                 depth_params = depths_params[extr.name[:-n_remove]]
             except:
@@ -207,11 +207,15 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
         images_folder=os.path.join(path, reading_dir), 
         depths_folder=os.path.join(path, depths) if depths != "" else "",
         test_cam_names_list=test_cam_names_list)
+    
     cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name) # 这里是对读取到的相机信息列表进行排序，排序的依据是相机的图像名称。这个排序操作可能是为了确保相机信息列表中的相机按照图像名称的顺序排列，以便在后续的场景加载和处理过程中能够正确地对应相机信息和图像数据。
+    
     # 这里是根据输入参数 train_test_exp 的值来确定训练相机列表。如果 train_test_exp 参数为 True，则将所有相机信息都包含在训练相机列表中；如果 train_test_exp 参数为 False，则只将非测试相机的信息包含在训练相机列表中。这个操作可能是为了根据不同的训练和评估需求来灵活地选择哪些相机信息应该用于训练，以便在后续的场景加载和处理过程中能够正确地标识哪些相机是训练相机。
     train_cam_infos = [c for c in cam_infos if train_test_exp or not c.is_test]  
+    
     # 这里是根据相机信息中的 is_test 字段来确定测试相机列表。这个操作可能是为了将相机信息列表中的测试相机的信息提取出来，并保存在 test_cam_infos 变量中，以便在后续的场景加载和处理过程中能够正确地标识哪些相机是测试相机。
     test_cam_infos = [c for c in cam_infos if c.is_test]  
+    
     # 这里是调用 getNerfppNorm 函数来计算 NeRF 归一化信息，并将其保存在 nerf_normalization 变量中。这个函数可能会根据训练相机的信息来计算出一个中心点和一个半径，用于在 NeRF 模型中进行归一化处理，以便在后续的场景加载和处理过程中能够正确地处理相机信息并创建高斯模型。0
     nerf_normalization = getNerfppNorm(train_cam_infos)  
     ply_path = os.path.join(path, "sparse/0/points3D.ply")
@@ -322,12 +326,21 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
                            is_nerf_synthetic=True) # 这里是创建一个 SceneInfo 对象，包含了点云数据、训练相机列表、测试相机列表、NeRF 归一化信息、点云文件路径以及一个标志位 is_nerf_synthetic，表示这个场景是否是 NeRF 合成数据集。这个 SceneInfo 对象将被返回给调用者，以便后续的高斯模型创建和训练过程能够使用这些场景信息。
     return scene_info
 
-
+# 直接读取深度相机的场景信息
+def readRealSceneInfo(path, images, depths):
+    
+    
+    
+    scene_info = SceneInfo(point_cloud=pcd,
+                           train_cameras=train_cam_infos,
+                           test_cameras=test_cam_infos,
+                           nerf_normalization=nerf_normalization,
+                           ply_path=ply_path,
+                           is_nerf_synthetic=Flase)
+    return scene_info
 
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
-    "Blender" : readNerfSyntheticInfo
-    
-    
-    
-}  # 这是一个字典，键是字符串，值是函数。这些函数用于加载不同类型的场景数据。根据输入的场景类型（例如 "Colmap" 或 "Blender"），可以调用相应的函数来读取场景信息。
+    "Blender" : readNerfSyntheticInfo,
+    "Realdata": readRealSceneInfo,
+}  
