@@ -32,9 +32,9 @@ class Scene:
 
         if load_iteration:  # 看上去是想加载训练迭代数据，如果没有指定迭代数，就搜索最大的迭代数
             if load_iteration == -1:
-                self.loaded_iter = searchForMaxIteration(os.path.join(self.model_path, "point_cloud"))
+                self.loaded_iter = searchForMaxIteration(os.path.join(self.model_path, "point_cloud"))  # 搜索最大的迭代数
             else:
-                self.loaded_iter = load_iteration
+                self.loaded_iter = load_iteration  # 如果指定了迭代数，就加载指定的迭代数据
             print("Loading trained model at iteration {}".format(self.loaded_iter))
 
         self.train_cameras = {}  # 初始化训练和测试相机字典
