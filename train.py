@@ -63,8 +63,8 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
     use_sparse_adam = opt.optimizer_type == "sparse_adam" and SPARSE_ADAM_AVAILABLE 
     depth_l1_weight = get_expon_lr_func(opt.depth_l1_weight_init, opt.depth_l1_weight_final, max_steps=opt.iterations)
 
-    viewpoint_stack = scene.getTrainCameras().copy()
-    viewpoint_indices = list(range(len(viewpoint_stack)))
+    viewpoint_stack = scene.getTrainCameras().copy()  # 初始化一个训练相机列表的副本，用于在训练过程中随机选择相机进行渲染和训练
+    viewpoint_indices = list(range(len(viewpoint_stack)))  # 初始化一个训练相机索引列表，包含从 0 到训练相机列表长度减 1 的整数，用于在训练过程中随机选择相机索引进行渲染和训练
     ema_loss_for_log = 0.0
     ema_Ll1depth_for_log = 0.0
 
@@ -158,7 +158,7 @@ def training(dataset, opt, pipe, testing_iterations, saving_iterations, checkpoi
             training_report(tb_writer, iteration, Ll1, loss, l1_loss, iter_start.elapsed_time(iter_end), testing_iterations, scene, render, (pipe, background, 1., SPARSE_ADAM_AVAILABLE, None, dataset.train_test_exp), dataset.train_test_exp)
             if (iteration in saving_iterations):
                 print("\n[ITER {}] Saving Gaussians".format(iteration))
-                scene.save(iteration)
+                scene.save(iteration)  # 这里是调用场景对象的 save 方法，将当前的迭代数作为参数传递给该方法，以便保存当前的高斯模型状态和相关信息到指定的路径下，以便后续使用或恢复训练。
 
             # Densification
             if iteration < opt.densify_until_iter:

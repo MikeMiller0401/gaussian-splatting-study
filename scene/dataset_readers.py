@@ -37,7 +37,7 @@ class CameraInfo(NamedTuple):
     height: int
     is_test: bool
 
-class SceneInfo(NamedTuple):
+class SceneInfo(NamedTuple): # 
     point_cloud: BasicPointCloud
     train_cameras: list
     test_cameras: list
@@ -70,26 +70,27 @@ def getNerfppNorm(cam_info):
 
 def readColmapCameras(cam_extrinsics, cam_intrinsics, depths_params, images_folder, depths_folder, test_cam_names_list):
     cam_infos = []
-    for idx, key in enumerate(cam_extrinsics):
-        sys.stdout.write('\r')
+    for idx, key in enumerate(cam_extrinsics):  # 
+        sys.stdout.write('\r')  # 这里是使用 sys.stdout.write 函数在命令行中输出当前正在读取的相机的索引和总相机数量，以便用户能够实时了解读取进度。这个输出会覆盖之前的输出，使得用户能够看到最新的读取状态，而不会产生多行输出。
         # the exact output you're looking for:
         sys.stdout.write("Reading camera {}/{}".format(idx+1, len(cam_extrinsics)))
         sys.stdout.flush()
 
-        extr = cam_extrinsics[key]
-        intr = cam_intrinsics[extr.camera_id]
-        height = intr.height
-        width = intr.width
+        extr = cam_extrinsics[key]  # 提取外参
+        intr = cam_intrinsics[extr.camera_id]  # 提取内参
+        height = intr.height  # 获取图像的高度
+        width = intr.width  # 获取图像的宽度
 
         uid = intr.id
-        R = np.transpose(qvec2rotmat(extr.qvec))
-        T = np.array(extr.tvec)
+        # NOTE: Why this matrix need transpose? Because COLMAP stores the rotation in a transposed way, and the CUDA code expects it to be transposed back to match the original rotation. This is likely due to the way COLMAP represents rotations and how the CUDA code processes them, ensuring that the rotation information is correctly interpreted during rendering and training.
+        R = np.transpose(qvec2rotmat(extr.qvec)) # 这里是将相机的旋转向量（quaternion）转换为旋转矩阵，并对其进行转置操作，以便在后续的相机处理和训练过程中能够正确地使用这个旋转矩阵来表示相机的旋转信息。
+        T = np.array(extr.tvec)  # 这里是将相机的平移向量转换为 NumPy 数组，以便在后续的相机处理和训练过程中能够正确地使用这个平移向量来表示相机的位置和移动信息。
 
-        if intr.model=="SIMPLE_PINHOLE":
+        if intr.model=="SIMPLE_PINHOLE":  # 方形像素
             focal_length_x = intr.params[0]
-            FovY = focal2fov(focal_length_x, height)
+            FovY = focal2fov(focal_length_x, height)  # 这里是根据相机的焦距和图像的高度来计算相机的垂直视场角（FovY）。这个计算可能是为了在后续的相机处理和训练过程中能够正确地使用这个视场角来表示相机的视野范围。
             FovX = focal2fov(focal_length_x, width)
-        elif intr.model=="PINHOLE":
+        elif intr.model=="PINHOLE":  # 非方形像素
             focal_length_x = intr.params[0]
             focal_length_y = intr.params[1]
             FovY = focal2fov(focal_length_y, height)
@@ -143,7 +144,9 @@ def storePly(path, xyz, rgb):
     ply_data.write(path)
 
 def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
-    try:
+    
+    # 这里是尝试读取 Colmap 场景的相机外参和内参文件，如果读取失败，则尝试读取文本格式的相机外参和内参文件。这个过程是为了兼容不同格式的 Colmap 输出文件，以确保能够正确加载场景信息。
+    try:  
         cameras_extrinsic_file = os.path.join(path, "sparse/0", "images.bin")
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.bin")
         cam_extrinsics = read_extrinsics_binary(cameras_extrinsic_file)
@@ -153,11 +156,16 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
         cameras_intrinsic_file = os.path.join(path, "sparse/0", "cameras.txt")
         cam_extrinsics = read_extrinsics_text(cameras_extrinsic_file)
         cam_intrinsics = read_intrinsics_text(cameras_intrinsic_file)
-
-    depth_params_file = os.path.join(path, "sparse/0", "depth_params.json")
+        
+    # 这里是构建深度参数文件的路径，假设深度参数文件位于 Colmap 场景的 "sparse/0" 文件夹下，并且命名为 "depth_params.json"。这个文件可能包含与深度图相关的参数信息，例如深度图的缩放比例、偏移量等，这些信息可能在后续的场景加载和处理过程中使用到。
+    depth_params_file = os.path.join(path, "sparse/0", "depth_params.json") 
+    
+    
     ## if depth_params_file isnt there AND depths file is here -> throw error
+    # 这里是检查深度参数文件是否存在，如果存在，则尝试打开该文件并读取其中的深度参数信息。如果文件不存在，则打印错误信息并退出程序。
     depths_params = None
-    if depths != "":
+    # 这里是检查是否指定了深度图文件夹，如果指定了，则尝试打开深度参数文件并读取其中的深度参数信息。如果没有指定深度图文件夹，则不需要读取深度参数文件，因此可以跳过这个步骤。
+    if depths != "":  
         try:
             with open(depth_params_file, "r") as f:
                 depths_params = json.load(f)
@@ -175,8 +183,9 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
         except Exception as e:
             print(f"An unexpected error occurred when trying to open depth_params.json file: {e}")
             sys.exit(1)
-
-    if eval:
+            
+    # 这里是根据输入参数 eval 的值来确定测试相机列表。如果 eval 参数为 True，则从 Colmap 场景的 "sparse/0/test.txt" 文件中读取测试相机的名称列表，并将其保存在 test_cam_names_list 变量中。这个文件可能包含了需要用于评估的测试相机的名称，以便在后续的场景加载和处理过程中正确地标识哪些相机是测试相机。
+    if eval: 
         if "360" in path:
             llffhold = 8
         if llffhold:
@@ -192,16 +201,19 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
 
     reading_dir = "images" if images == None else images
     cam_infos_unsorted = readColmapCameras(
-        cam_extrinsics=cam_extrinsics, cam_intrinsics=cam_intrinsics, depths_params=depths_params,
+        cam_extrinsics=cam_extrinsics,
+        cam_intrinsics=cam_intrinsics,
+        depths_params=depths_params,
         images_folder=os.path.join(path, reading_dir), 
-        depths_folder=os.path.join(path, depths) if depths != "" else "", test_cam_names_list=test_cam_names_list)
-    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name)
-
-    train_cam_infos = [c for c in cam_infos if train_test_exp or not c.is_test]
-    test_cam_infos = [c for c in cam_infos if c.is_test]
-
-    nerf_normalization = getNerfppNorm(train_cam_infos)
-
+        depths_folder=os.path.join(path, depths) if depths != "" else "",
+        test_cam_names_list=test_cam_names_list)
+    cam_infos = sorted(cam_infos_unsorted.copy(), key = lambda x : x.image_name) # 这里是对读取到的相机信息列表进行排序，排序的依据是相机的图像名称。这个排序操作可能是为了确保相机信息列表中的相机按照图像名称的顺序排列，以便在后续的场景加载和处理过程中能够正确地对应相机信息和图像数据。
+    # 这里是根据输入参数 train_test_exp 的值来确定训练相机列表。如果 train_test_exp 参数为 True，则将所有相机信息都包含在训练相机列表中；如果 train_test_exp 参数为 False，则只将非测试相机的信息包含在训练相机列表中。这个操作可能是为了根据不同的训练和评估需求来灵活地选择哪些相机信息应该用于训练，以便在后续的场景加载和处理过程中能够正确地标识哪些相机是训练相机。
+    train_cam_infos = [c for c in cam_infos if train_test_exp or not c.is_test]  
+    # 这里是根据相机信息中的 is_test 字段来确定测试相机列表。这个操作可能是为了将相机信息列表中的测试相机的信息提取出来，并保存在 test_cam_infos 变量中，以便在后续的场景加载和处理过程中能够正确地标识哪些相机是测试相机。
+    test_cam_infos = [c for c in cam_infos if c.is_test]  
+    # 这里是调用 getNerfppNorm 函数来计算 NeRF 归一化信息，并将其保存在 nerf_normalization 变量中。这个函数可能会根据训练相机的信息来计算出一个中心点和一个半径，用于在 NeRF 模型中进行归一化处理，以便在后续的场景加载和处理过程中能够正确地处理相机信息并创建高斯模型。0
+    nerf_normalization = getNerfppNorm(train_cam_infos)  
     ply_path = os.path.join(path, "sparse/0/points3D.ply")
     bin_path = os.path.join(path, "sparse/0/points3D.bin")
     txt_path = os.path.join(path, "sparse/0/points3D.txt")
@@ -213,7 +225,8 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
             xyz, rgb, _ = read_points3D_text(txt_path)
         storePly(ply_path, xyz, rgb)
     try:
-        pcd = fetchPly(ply_path)
+        # 这里是使用 fetchPly 函数从 "points3D.ply" 文件中加载点云数据，并将其保存在 pcd 变量中，以便后续的高斯模型创建和训练过程能够使用这个点云数据。
+        pcd = fetchPly(ply_path)  
     except:
         pcd = None
 
@@ -276,7 +289,7 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
     print("Reading Training Transforms")
     train_cam_infos = readCamerasFromTransforms(path, "transforms_train.json", depths_folder, white_background, False, extension)
     print("Reading Test Transforms")
-    test_cam_infos = readCamerasFromTransforms(path, "transforms_test.json", depths_folder, white_background, True, extension)
+    test_cam_infos = readCamerasFromTransforms(path, "transforms_test.json", depths_folder, white_background, True, extension)#  
     
     if not eval:
         train_cam_infos.extend(test_cam_infos)
@@ -285,19 +298,19 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
     nerf_normalization = getNerfppNorm(train_cam_infos)
 
     ply_path = os.path.join(path, "points3d.ply")
-    if not os.path.exists(ply_path):
-        # Since this data set has no colmap data, we start with random points
+    if not os.path.exists(ply_path):  # 这里是判断点云文件 "points3d.ply" 是否存在，如果不存在，就生成一个随机的点云数据，并将其保存到 "points3d.ply" 文件中。这个点云数据是为了在没有 Colmap 数据的情况下提供一个初始的点云，以便后续的高斯模型创建和训练过程能够正常进行。
+        # Since this data set has no colmap data, we start with random points 
         num_pts = 100_000
         print(f"Generating random point cloud ({num_pts})...")
         
         # We create random points inside the bounds of the synthetic Blender scenes
         xyz = np.random.random((num_pts, 3)) * 2.6 - 1.3
         shs = np.random.random((num_pts, 3)) / 255.0
-        pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))
+        pcd = BasicPointCloud(points=xyz, colors=SH2RGB(shs), normals=np.zeros((num_pts, 3)))  # 这里是创建一个 BasicPointCloud 对象，包含随机生成的点云数据。点云数据由随机生成的 xyz 坐标和对应的颜色值组成，其中颜色值是通过 SH2RGB 函数将随机生成的 shs 值转换为 RGB 颜色值，并且将法线设置为全零。这个点云数据将被保存到 "points3d.ply" 文件中，以便后续的高斯模型创建和训练过程能够使用这个初始的点云数据。
 
-        storePly(ply_path, xyz, SH2RGB(shs) * 255)
+        storePly(ply_path, xyz, SH2RGB(shs) * 255)  # 这里是调用 storePly 函数，将随机生成的点云数据保存到 "points3d.ply" 文件中。函数接受点云的 xyz 坐标和对应的 RGB 颜色值作为输入，并将它们写入到指定的 PLY 文件中，以便后续的高斯模型创建和训练过程能够使用这个初始的点云数据。
     try:
-        pcd = fetchPly(ply_path)
+        pcd = fetchPly(ply_path) # 这里是使用 fetchPly 函数从 "points3d.ply" 文件中加载点云数据，并将其保存到 pcd 变量中，以便后续的高斯模型创建和训练过程能够使用这个点云数据。
     except:
         pcd = None
 
@@ -306,10 +319,15 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
                            test_cameras=test_cam_infos,
                            nerf_normalization=nerf_normalization,
                            ply_path=ply_path,
-                           is_nerf_synthetic=True)
+                           is_nerf_synthetic=True) # 这里是创建一个 SceneInfo 对象，包含了点云数据、训练相机列表、测试相机列表、NeRF 归一化信息、点云文件路径以及一个标志位 is_nerf_synthetic，表示这个场景是否是 NeRF 合成数据集。这个 SceneInfo 对象将被返回给调用者，以便后续的高斯模型创建和训练过程能够使用这些场景信息。
     return scene_info
+
+
 
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo
-}
+    
+    
+    
+}  # 这是一个字典，键是字符串，值是函数。这些函数用于加载不同类型的场景数据。根据输入的场景类型（例如 "Colmap" 或 "Blender"），可以调用相应的函数来读取场景信息。
