@@ -64,7 +64,7 @@ def getNerfppNorm(cam_info):
     """
     def get_center_and_diag(cam_centers):
         cam_centers = np.hstack(cam_centers)
-        avg_cam_center = np.mean(cam_centers, axis=1, keepdims=True)
+        avg_cam_center = np.mean(cam_centers, axis=1, keepdims=True) # 均值
         center = avg_cam_center
         dist = np.linalg.norm(cam_centers - center, axis=0, keepdims=True)
         diagonal = np.max(dist)
@@ -74,19 +74,19 @@ def getNerfppNorm(cam_info):
     cam_centers = []
 
     for cam in cam_info:
-        W2C = getWorld2View2(cam.R, cam.T)
-        C2W = np.linalg.inv(W2C)
-        cam_centers.append(C2W[:3, 3:4])
+        W2C = getWorld2View2(cam.R, cam.T)  # 世界坐标系到相机坐标系
+        C2W = np.linalg.inv(W2C)  # 相机坐标系到世界坐标系
+        cam_centers.append(C2W[:3, 3:4])  # 世界坐标系中心
 
     # 计算相机中心点的几何中心及最大对角距离
-    center, diagonal = get_center_and_diag(cam_centers)
+    center, diagonal = get_center_and_diag(cam_centers)  #
     
     # 增加 10% 的半径余量以确保包含所有相机视角
     radius = diagonal * 1.1
 
-    translate = -center
+    translate = -center  # 计算平移向量
 
-    return {"translate": translate, "radius": radius}
+    return {"translate": translate, "radius": radius}  # 返回平移向量和半径
 
 def readColmapCameras(cam_extrinsics, cam_intrinsics, depths_params, images_folder, depths_folder, test_cam_names_list):
     cam_infos = []
@@ -277,6 +277,23 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
     return scene_info
 
 def readCamerasFromTransforms(path, transformsfile, depths_folder, white_background, is_test, extension=".png"):
+    """
+    从 transforms JSON 文件中读取相机信息和图像数据。
+
+    该函数解析 NeRF 风格的 transforms 文件，提取相机的内外参、视野角度（FOV），
+    并处理图像数据（包括去背景和格式转换）。同时可选地关联深度图路径。
+
+    参数:
+        path (str): 数据集根目录路径。
+        transformsfile (str): transforms JSON 文件的文件名。
+        depths_folder (str): 深度图所在的文件夹路径。如果为空字符串，则不加载深度图。
+        white_background (bool): 是否使用白色背景。如果为 True，透明区域填充白色；否则填充黑色。
+        is_test (bool): 标记当前加载的数据集是否用于测试阶段。
+        extension (str, optional): 图像文件的扩展名，默认为 ".png"。
+
+    返回:
+        list[CameraInfo]: 包含每个视角相机信息的 CameraInfo 对象列表。
+    """
     cam_infos = []
 
     with open(os.path.join(path, transformsfile)) as json_file:
