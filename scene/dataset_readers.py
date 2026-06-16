@@ -22,6 +22,8 @@ from pathlib import Path
 from plyfile import PlyData, PlyElement
 from utils.sh_utils import SH2RGB
 from scene.gaussian_model import BasicPointCloud
+import open3d as o3d
+import shutil
 
 class CameraInfo(NamedTuple):
     uid: int
@@ -264,6 +266,7 @@ def readColmapSceneInfo(path, images, depths, eval, train_test_exp, llffhold=8):
         storePly(ply_path, xyz, rgb)
     try:
         # 这里是使用 fetchPly 函数从 "points3D.ply" 文件中加载点云数据，并将其保存在 pcd 变量中，以便后续的高斯模型创建和训练过程能够使用这个点云数据。
+        
         pcd = fetchPly(ply_path)  
     except:
         pcd = None
@@ -322,9 +325,14 @@ def readCamerasFromTransforms(path, transformsfile, depths_folder, white_backgro
 
             bg = np.array([1,1,1]) if white_background else np.array([0, 0, 0])
 
-            norm_data = im_data / 255.0
-            arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])
-            image = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")
+            norm_data = im_data / 255.0  #  normalize
+            arr = norm_data[:,:,:3] * norm_data[:, :, 3:4] + bg * (1 - norm_data[:, :, 3:4])  # alpha compositing
+            
+            # transfer arr from int to np.uint8
+            arr = (arr * 255.0).astype(np.uint8)
+            image = Image.fromarray(arr, "RGB")
+            
+            # image = Image.fromarray(np.array(arr*255.0, dtype=np.byte), "RGB")  # convert back to RGB
 
             fovy = focal2fov(fov2focal(fovx, image.size[0]), image.size[1])
             FovY = fovy 
@@ -337,6 +345,28 @@ def readCamerasFromTransforms(path, transformsfile, depths_folder, white_backgro
                             width=image.size[0], height=image.size[1], depth_path=depth_path, depth_params=None, is_test=is_test))
             
     return cam_infos
+
+def downsample_ply(path, ply_path):    
+    backup_path = os.path.join(path, "backup_ply")
+    if not os.path.exists(backup_path):
+        os.makedirs(backup_path)
+    else:
+        backup_ply_path = os.path.join(backup_path, "points3d.ply")
+        if not os.path.exists(backup_ply_path):
+            print(f"Error: The backup file at path '{backup_ply_path}' was not found.")
+            sys.exit(1)
+        else:
+            return "Has been downsampled"
+    
+    shutil.copy(ply_path, backup_path) # 备份原始文件
+    mesh = o3d.io.read_triangle_mesh(ply_path)
+    pcd = o3d.geometry.PointCloud()
+    pcd.points = mesh.vertices
+    pcd.normals = mesh.vertex_normals
+    pcd.colors = mesh.vertex_colors
+    pcd_down = pcd.voxel_down_sample(voxel_size=0.005)
+    o3d.io.write_point_cloud(ply_path, pcd_down, write_ascii=False)
+    print(f"已覆盖保存到: {ply_path}")
 
 def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"):
 
@@ -351,9 +381,10 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
         test_cam_infos = []
 
     nerf_normalization = getNerfppNorm(train_cam_infos)
-
     ply_path = os.path.join(path, "points3d.ply")
+    print(f"try to load point cloud from {ply_path}")
     if not os.path.exists(ply_path):  # 这里是判断点云文件 "points3d.ply" 是否存在，如果不存在，就生成一个随机的点云数据，并将其保存到 "points3d.ply" 文件中。这个点云数据是为了在没有 Colmap 数据的情况下提供一个初始的点云，以便后续的高斯模型创建和训练过程能够正常进行。
+        print("Point cloud not found, generating random point cloud")
         # Since this data set has no colmap data, we start with random points 
         num_pts = 100_000
         print(f"Generating random point cloud ({num_pts})...")
@@ -365,6 +396,7 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
 
         storePly(ply_path, xyz, SH2RGB(shs) * 255)  # 这里是调用 storePly 函数，将随机生成的点云数据保存到 "points3d.ply" 文件中。函数接受点云的 xyz 坐标和对应的 RGB 颜色值作为输入，并将它们写入到指定的 PLY 文件中，以便后续的高斯模型创建和训练过程能够使用这个初始的点云数据。
     try:
+        downsample_ply(path, ply_path)  #这里如果点云文件太大，加载会非常缓慢且会爆显存，需要改成open3D读取然后降采样
         pcd = fetchPly(ply_path) # 这里是使用 fetchPly 函数从 "points3d.ply" 文件中加载点云数据，并将其保存到 pcd 变量中，以便后续的高斯模型创建和训练过程能够使用这个点云数据。
     except:
         pcd = None
@@ -377,8 +409,18 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
                            is_nerf_synthetic=True) # 这里是创建一个 SceneInfo 对象，包含了点云数据、训练相机列表、测试相机列表、NeRF 归一化信息、点云文件路径以及一个标志位 is_nerf_synthetic，表示这个场景是否是 NeRF 合成数据集。这个 SceneInfo 对象将被返回给调用者，以便后续的高斯模型创建和训练过程能够使用这些场景信息。
     return scene_info
 
+
+
+
 # 直接读取深度相机的场景信息
 def readRealSceneInfo(path, images, depths):
+    
+    
+    
+    
+    
+    
+    
     
     
     
