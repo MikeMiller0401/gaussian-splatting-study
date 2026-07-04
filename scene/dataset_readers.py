@@ -413,15 +413,7 @@ def readNerfSyntheticInfo(path, white_background, depths, eval, extension=".png"
 
 
 # 直接读取深度相机的场景信息
-def readRealSceneInfo(path, images, depths):
-    
-    
-    
-    
-    
-    
-    
-    
+def readKinectDKSceneInfo(path, images, depths):
     
     
     scene_info = SceneInfo(point_cloud=pcd,
@@ -435,5 +427,5 @@ def readRealSceneInfo(path, images, depths):
 sceneLoadTypeCallbacks = {
     "Colmap": readColmapSceneInfo,
     "Blender" : readNerfSyntheticInfo,
-    "Realdata": readRealSceneInfo,
+    "KinectDK": readKinectDKSceneInfo,
 }  # 这里创建了一个字典，将数据集类型（Colmap、Blender、Realdata）映射到对应的数据读取函数。
